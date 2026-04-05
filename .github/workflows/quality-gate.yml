@@ -1,0 +1,54 @@
+name: Norvus Quality Gate
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lint-and-typecheck:
+    name: Lint & Type Check (Python/TS)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8 mypy pytest-mock
+
+      - name: Lint with flake8 (Google Style Enforcement)
+        run: |
+          # Stop the build if there are Python syntax errors or undefined names
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          # exit-zero treats all errors as warnings
+          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=88 --statistics
+
+      - name: Type checking with mypy
+        run: |
+          mypy projects/anic-core/src
+          mypy projects/consejo-ia-agents/src
+
+      - name: Mock Security Scan (Bandit)
+        run: |
+          pip install bandit
+          bandit -r . -ll
+
+  contract-validation:
+    name: Shared API Contracts (TS)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install and Validate TS
+        run: |
+          npm install -g typescript
+          tsc projects/agrotour-platform/shared/contracts/api_v1.ts --noEmit
